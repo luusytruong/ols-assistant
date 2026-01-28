@@ -1,0 +1,21 @@
+{
+  "name": "ols-assistant",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "workspaces": [
+    "fe",
+    "agent"
+  ],
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter fe dev\" \"pnpm --filter agent dev\"",
+    "build": "pnpm --filter fe build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.28.1",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
