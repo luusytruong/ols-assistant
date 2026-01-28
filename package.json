@@ -9,7 +9,8 @@
   ],
   "scripts": {
     "dev": "concurrently \"pnpm --filter fe dev\" \"pnpm --filter agent dev\"",
-    "build": "pnpm --filter fe build"
+    "start": "concurrently \"pnpm --filter fe start\" \"pnpm --filter agent start\"",
+    "build": "concurrently \"pnpm --filter fe build\" \"pnpm --filter agent build\""
   },
   "keywords": [],
   "author": "",

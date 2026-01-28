@@ -14,7 +14,7 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    allowedHosts: ["chat.truong.cloud"],
+    allowedHosts: ["chat.truong.cloud", "tea.truong.cloud"],
     proxy: {
       "/api": {
         target: "http://localhost:3001",
