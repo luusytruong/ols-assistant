@@ -23,4 +23,16 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    host: true,
+    port: 4173,
+    allowedHosts: ["chat.truong.cloud", "tea.truong.cloud"],
+    proxy: {
+      "/api": {
+        target: "http://agent:3001",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ""),
+      },
+    },
+  },
 });

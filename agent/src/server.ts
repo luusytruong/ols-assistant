@@ -1,4 +1,6 @@
 import express from "express";
+import { config } from "dotenv";
+config();
 import { run, OpenAIConversationsSession } from "@openai/agents";
 import productAgent from "./agents/product.agent.js";
 
