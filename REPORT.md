@@ -1,244 +1,157 @@
-# OPENAI AGENTS SDK
+# BÁO CÁO TÌM HIỂU CÔNG NGHỆ: OPENAI AGENTS SDK
 
-## 1. GIỚI THIỆU
+## 1. Giới thiệu chung
 
-### 1.1. OpenAI Agents SDK là gì?
+OpenAI Agents SDK (dành cho TypeScript/JavaScript) là một thư viện mã nguồn mở được thiết kế để đơn giản hóa quy trình xây dựng các ứng dụng AI Agent. Qua quá trình tìm hiểu tài liệu từ trang chủ, chúng ta có thể thấy SDK này tập trung vào việc giảm thiểu sự phức tạp, cung cấp những thành phần cơ bản nhất (primitives) nhưng đủ mạnh mẽ để tạo ra các hệ thống Agent thông minh.
 
-OpenAI Agents SDK là thư viện JavaScript/TypeScript do OpenAI phát triển, giúp lập trình viên xây dựng các ứng dụng AI Agent. SDK này đơn giản, dễ học và có thể sử dụng trong các dự án thực tế.
+Mục tiêu chính của SDK là giúp lập trình viên kết nối các mô hình ngôn ngữ lớn (LLM) với các công cụ (tools) và điều phối luồng công việc giữa nhiều Agent với nhau một cách tự nhiên.
 
-### 1.2. Tại sao nên sử dụng?
+## 2. Các khái niệm cốt lõi & Ví dụ thực tế
 
-- Dễ học, không cần kiến thức phức tạp
-- Tự động xử lý các tác vụ lặp đi lặp lại
-- Hỗ trợ nhiều agent làm việc cùng nhau
-- Có công cụ debug tích hợp sẵn
+Trong dự án "Chè Thái" (folder `agent` mà nhóm đã phát triển), chúng ta đã áp dụng triệt để những khái niệm này. Dưới đây là lý thuyết kèm theo code minh họa trực tiếp từ mã nguồn dự án.
 
----
+### 2.1. Agent (Tác nhân)
 
-## 2. CÁC KHÁI NIỆM CƠ BẢN
+Agent là thành phần trung tâm, được cấu hình với tính cách (instructions) và khả năng (tools).
 
-### 2.1. Agent
-
-Agent là một AI được cấu hình với hướng dẫn và công cụ để thực hiện nhiệm vụ.
-
-**Ví dụ:**
+**Ví dụ:** `Product Agent` được cấu hình để chuyên trả lời về trà và sản phẩm.
 
 ```typescript
-import { Agent } from "@openai/agents";
-
-const agent = new Agent({
-  name: "Assistant",
-  instructions: "Bạn là trợ lý hỗ trợ người dùng",
-  model: "gpt-4o",
+// src/agents/product.agent.ts
+const productAgent = new Agent({
+  name: "Product Agent",
+  instructions:
+    "Bạn là chuyên gia về trà. Hãy giúp khách chọn đồ uống phù hợp.",
+  model: "gpt-4o-mini",
+  // Agent này có các công cụ để tra cứu sản phẩm
+  tools: [getProducts, searchProducts],
 });
 ```
 
 ### 2.2. Tools (Công cụ)
 
-Tools là các chức năng mà agent có thể gọi để thực hiện công việc cụ thể.
+Tools là cách Agent tác động vào thế giới thực. Chúng ta sử dụng `zod` để định nghĩa đầu vào (input), giúp Agent biết chính xác cần gửi dữ liệu gì.
 
-**Ví dụ đơn giản:**
+**Ví dụ:** Tool `create_order` dùng để tạo đơn hàng.
 
 ```typescript
-import { tool } from "@openai/agents";
-import { z } from "zod";
-
-const getWeather = tool({
-  name: "get_weather",
-  description: "Lấy thông tin thời tiết",
-  parameters: z.object({
-    location: z.string(),
-  }),
-  execute: async ({ location }) => {
-    return `Thời tiết tại ${location}: Nắng, 25°C`;
+// src/agents/order.agent.ts
+const createOrder = tool({
+  name: "create_order",
+  description: "Tạo đơn hàng mới, các thông tin phải chính xác",
+  // Định nghĩa Schema rõ ràng để Agent điền đúng format
+  parameters: OrderRequestSchema,
+  execute: async (params) => {
+    // Logic gọi API backend thực sự
+    const result = await orderApi.createOrder(params);
+    return result;
   },
 });
 ```
 
-### 2.3. Handoffs (Chuyển giao)
+### 2.3. Handoffs (Chuyển giao) & Multi-Agent
 
-Handoffs cho phép một agent chuyển công việc sang agent khác khi cần.
+Đây là mô hình "Router" mà chúng ta đã áp dụng. Một Agent (Lễ tân) sẽ đứng ra hứng request và chuyển việc (handoff) cho Agent con phù hợp.
 
-**Ví dụ:**
-
-```typescript
-const mathAgent = new Agent({
-  name: "Math Expert",
-  instructions: "Bạn giải toán",
-});
-
-const historyAgent = new Agent({
-  name: "History Expert",
-  instructions: "Bạn trả lời câu hỏi lịch sử",
-});
-
-const mainAgent = new Agent({
-  name: "Main Agent",
-  instructions: "Phân loại câu hỏi và chuyển đến chuyên gia phù hợp",
-  handoffs: [mathAgent, historyAgent],
-});
-```
-
-### 2.4. Sessions (Phiên làm việc)
-
-Session lưu lại cuộc trò chuyện để agent có thể nhớ ngữ cảnh.
+**Ví dụ:** `Router Agent` điều phối công việc giữa `Product Agent` và `Order Agent`.
 
 ```typescript
-import { OpenAIConversationsSession } from "@openai/agents";
-
-const session = new OpenAIConversationsSession();
-
-await run(agent, "Xin chào", { session });
-await run(agent, "Tôi vừa nói gì?", { session });
-// Agent sẽ nhớ được câu "Xin chào"
+// src/agents/router.agent.ts
+const routerAgent = new Agent({
+  name: "Router Agent",
+  instructions: `Lễ tân "Chè Thái".
+  LUÔN CHUYỂN:
+  - sản phẩm/trà/giá → Product Agent
+  - đơn hàng/giao hàng → Order Agent`,
+  // Danh sách các agent mà Router có thể chuyển việc sang
+  handoffs: [productAgent, orderAgent],
+});
 ```
 
----
+Nhờ cơ chế này, chúng ta tách biệt được nghiệp vụ: Router chỉ lo điều hướng, còn việc xử lý logic trà hay đơn hàng là của Agent con.
 
-## 3. CÁCH HOẠT ĐỘNG
+## 3. Khái niệm Nâng cao: Structured Outputs (Định dạng đầu ra có cấu trúc)
 
-### 3.1. Agent Loop (Vòng lặp Agent)
+### 3.1. Lý thuyết
 
+Mặc định LLM trả về văn bản (text). Tuy nhiên, để tích hợp vào ứng dụng (Web/App), chúng ta thường cần dữ liệu dạng JSON. SDK hỗ trợ tham số `outputType` để ép Agent trả về đúng cấu trúc mong muốn.
+
+### 3.2. Ví dụ trong dự án
+
+Chúng ta muốn Bot không chỉ trả lời câu thoại (`reply`) mà còn trả về dữ liệu (`toolResult`) để Frontend hiển thị thẻ sản phẩm hoặc đơn hàng.
+
+**Định nghĩa Schema (`src/types/agent.response.ts`):**
+
+```typescript
+export const AgentResponseSchema = z.object({
+  reply: z.string().describe("Lời thoại trả lời khách hàng"),
+
+  // Loại dữ liệu đi kèm (nếu có)
+  type: z.enum(["text", "product", "order"]).nullable(),
+
+  // Dữ liệu JSON stringify để Frontend parse ra hiển thị
+  toolResult: z.string().nullable(),
+});
 ```
-1. Người dùng đặt câu hỏi
-2. Agent xử lý bằng AI
-3. AI quyết định:
-   - Trả lời trực tiếp → Kết thúc
-   - Gọi công cụ → Thực hiện → Quay lại bước 2
-   - Chuyển sang agent khác → Quay lại bước 2
-4. Trả kết quả
+
+**Áp dụng vào Agent:**
+
+```typescript
+const routerAgent = new Agent({
+  // ... cấu hình khác
+  outputType: AgentResponseSchema, // Bắt buộc Agent trả về đúng format này
+});
 ```
 
-### 3.2. Multi-Agent System
+Khi chạy, kết quả `result.finalOutput` sẽ luôn đảm bảo có đủ các trường `reply`, `type`, giúp Frontend dễ dàng xử lý logic hiển thị.
 
-**Mô hình 1: Manager và Specialist**
+## 4. Cài đặt & Triển khai
 
-- Agent chính điều phối
-- Các agent chuyên môn xử lý từng phần
-- Kết quả tập hợp về agent chính
-
-**Mô hình 2: Handoffs**
-
-- Agent phân loại yêu cầu
-- Chuyển sang agent chuyên môn
-- Agent chuyên môn xử lý trực tiếp
-
----
-
-## 4. THỰC HÀNH
-
-### 4.1. Cài đặt
+### 4.1. Cài đặt thư viện
 
 ```bash
 npm install @openai/agents zod
 ```
 
-Yêu cầu:
+### 4.2. Khởi chạy Server (Tích hợp Express)
 
-- Node.js >= 18
-- OpenAI API Key
+Trong thực tế, Agent thường chạy trên Server. Dưới đây là cách chúng ta tích hợp SDK với Express và quản lý phiên (`Session`).
 
-### 4.2. Chatbot đơn giản
-
-```typescript
-import { Agent, run } from "@openai/agents";
-
-const agent = new Agent({
-  name: "Assistant",
-  instructions: "Bạn là trợ lý thân thiện",
-});
-
-const result = await run(agent, "Xin chào!");
-console.log(result.finalOutput);
-```
-
-### 4.3. Chatbot có công cụ tính toán
+**Quản lý Session (`src/server.ts`):**
+Chúng ta dùng `OpenAIConversationsSession` để Bot nhớ được ngữ cảnh.
 
 ```typescript
-import { Agent, run, tool } from "@openai/agents";
-import { z } from "zod";
+const sessions = new Map<string, OpenAIConversationsSession>();
 
-const calculateTool = tool({
-  name: "calculate",
-  description: "Thực hiện phép tính",
-  parameters: z.object({
-    expression: z.string(),
-  }),
-  execute: async ({ expression }) => {
-    try {
-      const result = eval(expression);
-      return `Kết quả: ${result}`;
-    } catch (error) {
-      return "Biểu thức không hợp lệ";
-    }
-  },
+app.post("/chat", async (req, res) => {
+  const { sessionId, message } = req.body;
+
+  // Tạo session mới nếu chưa có
+  if (!sessions.has(sessionId)) {
+    sessions.set(sessionId, new OpenAIConversationsSession());
+  }
+
+  // Chạy Agent với session đã lưu
+  const result = await run(routerAgent, message, {
+    session: sessions.get(sessionId),
+  });
+
+  // Trả về kết quả cho Client
+  res.json(result.finalOutput);
 });
-
-const mathAgent = new Agent({
-  name: "Math Assistant",
-  instructions: "Bạn hỗ trợ tính toán. Sử dụng công cụ calculate khi cần.",
-  tools: [calculateTool],
-});
-
-const result = await run(mathAgent, "123 nhân 456 bằng bao nhiêu?");
-console.log(result.finalOutput);
 ```
 
----
+## 5. Kết luận
 
-## 5. SO SÁNH VỚI FRAMEWORK KHÁC
+OpenAI Agents SDK cung cấp một bộ khung (framework) chuẩn mực. Việc áp dụng các pattern như **Handoffs (Router)** và **Structured Outputs** giúp code của chúng ta:
 
-| Đặc điểm    | OpenAI Agents | LangChain | AutoGen    |
-| ----------- | ------------- | --------- | ---------- |
-| Độ khó      | Dễ            | Khó       | Trung bình |
-| Phức tạp    | Thấp          | Cao       | Trung bình |
-| Multi-agent | Có            | Có        | Có         |
-| Dễ học      | Cao           | Thấp      | Trung bình |
+1.  **Dễ bảo trì**: Tách nhỏ nghiệp vụ thành từng Agent riêng.
+2.  **Chặt chẽ**: Dữ liệu ra/vào luôn đúng format nhờ Zod.
+3.  **Có trạng thái**: Bot nhớ được lịch sử chat nhờ Session.
 
-**Nên dùng OpenAI Agents SDK khi:**
+Đây là nền tảng vững chắc để phát triển các tính năng phức tạp hơn trong tương lai.
 
-- Mới bắt đầu học về AI agents
-- Cần xây dựng ứng dụng đơn giản
-- Dùng các model của OpenAI
+## Tài liệu tham khảo
 
----
-
-## 6. ƯU ĐIỂM VÀ HẠN CHẾ
-
-### 6.1. Ưu điểm
-
-- Dễ học và dễ sử dụng
-- Code đơn giản, dễ hiểu
-- Có công cụ debug tốt
-- Phù hợp cho người mới bắt đầu
-
-### 6.2. Hạn chế
-
-- Chỉ dùng được với OpenAI models
-- Chi phí cao khi dùng nhiều
-- Chưa phù hợp cho hệ thống rất phức tạp
-
----
-
-## 7. KẾT LUẬN
-
-OpenAI Agents SDK là công cụ tốt cho người mới bắt đầu học về AI agents. Framework này đơn giản, dễ hiểu và có đủ tính năng để xây dựng các ứng dụng thực tế.
-
-Qua quá trình tìm hiểu, em nhận thấy:
-
-- SDK này phù hợp để học và thực hành
-- Documentation rõ ràng, dễ theo dõi
-- Có thể áp dụng vào các dự án nhỏ
-
-Hướng phát triển tiếp theo:
-
-- Thực hành với các ví dụ phức tạp hơn
-- Tích hợp vào dự án thực tế
-- Học thêm về các pattern nâng cao
-
----
-
-## 8. TÀI LIỆU THAM KHẢO
-
-1. OpenAI Agents Documentation - https://openai.github.io/openai-agents-js/
-2. GitHub Repository - https://github.com/openai/openai-agents-js
+1.  [OpenAI Agents SDK Documentation](https://openai.github.io/openai-agents-js/)
+2.  [Source Code dự án] (thư mục `agent/src`)

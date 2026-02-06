@@ -1,8 +1,8 @@
 import express from "express";
 import { config } from "dotenv";
-config();
 import { run, OpenAIConversationsSession } from "@openai/agents";
 import productAgent from "./agents/product.agent.js";
+config();
 
 const app = express();
 const port = 3001;

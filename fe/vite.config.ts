@@ -14,7 +14,7 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    allowedHosts: ["chat.truong.cloud", "tea.truong.cloud"],
+    allowedHosts: ["vite.truong.cloud"],
     proxy: {
       "/api": {
         target: "http://localhost:3001",
@@ -25,8 +25,8 @@ export default defineConfig({
   },
   preview: {
     host: true,
-    port: 4173,
-    allowedHosts: ["chat.truong.cloud", "tea.truong.cloud"],
+    port: 5173,
+    allowedHosts: ["vite.truong.cloud"],
     proxy: {
       "/api": {
         target: "http://agent:3001",
