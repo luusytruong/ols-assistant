@@ -1,6 +1,6 @@
 import { Agent, tool } from "@openai/agents";
 import z from "zod";
-import { productApi } from "../lib/index.js";
+import { productService } from "../services/index.js";
 import { ProductSearchSchema } from "../types/product.schema.js";
 import { AgentResponseSchema } from "../types/agent.response.js";
 import orderAgent from "./order.agent.js";
@@ -15,7 +15,7 @@ const getProducts = tool({
     console.log("calling get products");
 
     try {
-      const result = await productApi.getProducts();
+      const result = await productService.getProducts();
       return result;
     } catch (error) {
       console.error("Lỗi khi lấy danh sách sản phẩm:", error);
@@ -32,7 +32,7 @@ const searchProducts = tool({
     console.log("calling search products", params);
 
     try {
-      const result = await productApi.searchProducts(params);
+      const result = await productService.searchProducts(params);
       return result;
     } catch (error) {
       console.error("Lỗi khi tìm kiếm sản phẩm:", error);

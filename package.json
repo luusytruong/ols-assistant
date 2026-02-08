@@ -1,20 +1,11 @@
 {
   "name": "ols-assistant",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "workspaces": [
-    "fe",
-    "agent"
-  ],
   "scripts": {
-    "dev": "concurrently \"pnpm --filter fe dev\" \"pnpm --filter agent dev\"",
-    "start": "concurrently \"pnpm --filter fe start\" \"pnpm --filter agent start\"",
-    "build": "concurrently \"pnpm --filter fe build\" \"pnpm --filter agent build\""
+    "dev": "concurrently \"pnpm --filter fe dev\" \"pnpm --filter be dev\"",
+    "start": "concurrently \"pnpm --filter fe start\" \"pnpm --filter be start\"",
+    "build": "concurrently \"pnpm --filter fe build\" \"pnpm --filter be build\""
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "packageManager": "pnpm@10.28.1",
   "devDependencies": {
     "concurrently": "^9.2.1"

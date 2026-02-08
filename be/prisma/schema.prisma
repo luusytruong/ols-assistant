@@ -1,0 +1,111 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Product {
+  id               Int      @id @default(autoincrement())
+  name             String
+  image            String
+  price            Decimal  @db.Decimal(15, 2)
+  description      String?  @db.Text
+  stock            Int?
+  slug             String?
+  shortDescription String?  @map("short_description") @db.Text
+  originalPrice    String?  @map("original_price")
+  images           Json?
+  discount         String?
+  categoryId       String?  @map("category_id")
+  weight           String?
+  origin           String?
+  processingMethod String?  @map("processing_method")
+  details          String?  @db.Text
+  isFeatured       Boolean? @map("is_featured")
+  isNew            Boolean? @map("is_new")
+  metaKeywords     String?  @map("meta_keywords")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  items OrderItem[]
+
+  @@map("products")
+}
+
+model Order {
+  id              Int     @id @default(autoincrement())
+  code            String? @unique
+  note            String? @db.Text
+  customerName    String?
+  customerPhone   String?
+  customerEmail   String?
+  customerAddress String?
+  status          String  @default("PENDING") // ENUM in DB but String in Prisma for MySQL unless native enum
+  totalPrice      Decimal @db.Decimal(15, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int     @map("order_id")
+  productId Int     @map("product_id")
+  quantity  Int
+  price     Decimal @db.Decimal(15, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+// Working Memory: Stores temporary info about the user during a session
+model CustomerSession {
+  id        String @id @default(uuid())
+  sessionId String @unique // Linked to the chat session ID (e.g. from frontend)
+
+  // Extracted info
+  customerName    String?
+  customerPhone   String?
+  customerAddress String?
+  customerEmail   String?
+
+  // Metadata
+  metadata Json? // Any other info we might want to store
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("customer_sessions")
+}
+
+// History Context: Persists chat messages
+model Conversation {
+  id         String  @id @default(uuid())
+  sessionId  String
+  role       String // 'user' | 'assistant' | 'system' | 'tool'
+  content    String  @db.Text
+  toolCalls  Json? // Store tool calls if any
+  toolResult String? @db.Text // Store tool results if role is 'tool'
+
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@map("conversations")
+}

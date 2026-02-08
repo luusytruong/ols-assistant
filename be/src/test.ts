@@ -1,8 +1,6 @@
 import express from "express";
-import { config } from "dotenv";
 import { run, OpenAIConversationsSession } from "@openai/agents";
 import productAgent from "./agents/product.agent.js";
-config();
 
 const app = express();
 const port = 3001;
@@ -22,7 +20,8 @@ app.post("/chat", async (req, res) => {
     sessions.set(id, new OpenAIConversationsSession());
   }
   const session = sessions.get(id)!;
-
+  console.log("🚀 Request:", req.body);
+  console.log("🚀 Session:", (session as any).messages);
   try {
     const result = await run(productAgent, message, {
       session,

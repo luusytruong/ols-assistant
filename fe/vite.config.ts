@@ -29,7 +29,7 @@ export default defineConfig({
     allowedHosts: ["vite.truong.cloud"],
     proxy: {
       "/api": {
-        target: "http://agent:3001",
+        target: "http://be:3001",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
       },

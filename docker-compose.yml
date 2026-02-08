@@ -1,44 +1,36 @@
 services:
   db:
-    image: mysql:8.0
+    image: postgres:15
     container_name: ols-db
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: chethai_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: chethai_db
     ports:
-      - "3307:3306"
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 10s
       timeout: 5s
       retries: 5
+
+volumes:
+  pgdata:
 
   be:
     build:
       context: ./be
     container_name: ols-be
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/chethai_db?useSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
-      SERVER_ALLOWED_ORIGIN: http://localhost:4173,http://localhost:5173
-    ports:
-      - "8080:8080"
-    depends_on:
-      db:
-        condition: service_healthy
-
-  agent:
-    build:
-      context: ./agent
-    container_name: ols-agent
-    environment:
-      API_URL: http://be:8080/api/v1
+      DATABASE_URL: "postgresql://postgres:root@db:5432/chethai_db?schema=public"
       OPENAI_API_KEY: ${OPENAI_API_KEY}
     ports:
       - "3001:3001"
     depends_on:
-      - be
+      db:
+        condition: service_healthy
 
   fe:
     build:
@@ -47,4 +39,4 @@ services:
     ports:
       - "5173:5173"
     depends_on:
-      - agent
+      - be

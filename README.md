@@ -39,9 +39,9 @@ Bạn cần thiết lập mã khóa OpenAI để Agent có thể hoạt động:
     OPENAI_API_KEY=your_sk_key_here
     ```
 
-2.  **Tại thư mục `agent` (Optional nếu chạy local không dùng Docker):**
+2.  **Tại thư mục `be` (Optional nếu chạy local không dùng Docker):**
     ```bash
-    cd agent
+    cd be
     cp .env.example .env
     cd ..
     ```

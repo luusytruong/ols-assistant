@@ -8,7 +8,7 @@ Mục tiêu chính của SDK là giúp lập trình viên kết nối các mô h
 
 ## 2. Các khái niệm cốt lõi & Ví dụ thực tế
 
-Trong dự án "Chè Thái" (folder `agent` mà nhóm đã phát triển), chúng ta đã áp dụng triệt để những khái niệm này. Dưới đây là lý thuyết kèm theo code minh họa trực tiếp từ mã nguồn dự án.
+Trong dự án "Chè Thái" (folder `be` mà nhóm đã phát triển), chúng ta đã áp dụng triệt để những khái niệm này. Dưới đây là lý thuyết kèm theo code minh họa trực tiếp từ mã nguồn dự án.
 
 ### 2.1. Agent (Tác nhân)
 
