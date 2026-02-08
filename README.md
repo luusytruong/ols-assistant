@@ -11,7 +11,7 @@ Theo dõi các bước dưới đây để thiết lập môi trường chạy d
 Clone dự án về máy cá nhân:
 
 ```bash
-git clone <url-repository>
+git clone https://github.com/luusytruong/ols-assistant.git
 cd ols-assistant
 ```
 
