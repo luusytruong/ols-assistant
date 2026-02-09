@@ -43,13 +43,13 @@ model Product {
 
 model Order {
   id              Int     @id @default(autoincrement())
-  code            String? @unique
+  code            String  @unique
   note            String? @db.Text
-  customerName    String?
-  customerPhone   String?
+  customerName    String
+  customerPhone   String
   customerEmail   String?
-  customerAddress String?
-  status          String  @default("PENDING") // ENUM in DB but String in Prisma for MySQL unless native enum
+  customerAddress String
+  status          String  @default("PENDING")
   totalPrice      Decimal @db.Decimal(15, 2)
 
   createdAt DateTime @default(now())
@@ -75,36 +75,23 @@ model OrderItem {
   @@map("order_items")
 }
 
-// Working Memory: Stores temporary info about the user during a session
 model CustomerSession {
-  id        String @id @default(uuid())
-  sessionId String @unique // Linked to the chat session ID (e.g. from frontend)
+  id        Int    @id @default(autoincrement())
+  sessionId String @unique
 
-  // Extracted info
   customerName    String?
   customerPhone   String?
   customerAddress String?
   customerEmail   String?
 
-  // Metadata
-  metadata Json? // Any other info we might want to store
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
   @@map("customer_sessions")
 }
 
-// History Context: Persists chat messages
 model Conversation {
-  id         String  @id @default(uuid())
-  sessionId  String
-  role       String // 'user' | 'assistant' | 'system' | 'tool'
-  content    String  @db.Text
-  toolCalls  Json? // Store tool calls if any
-  toolResult String? @db.Text // Store tool results if role is 'tool'
-
-  createdAt DateTime @default(now())
+  id        Int    @id @default(autoincrement())
+  sessionId String
+  role      String
+  content   String @db.Text
 
   @@index([sessionId])
   @@map("conversations")

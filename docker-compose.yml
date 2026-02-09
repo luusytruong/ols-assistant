@@ -16,9 +16,6 @@ services:
       timeout: 5s
       retries: 5
 
-volumes:
-  pgdata:
-
   be:
     build:
       context: ./be
@@ -40,3 +37,6 @@ volumes:
       - "5173:5173"
     depends_on:
       - be
+
+volumes:
+  pgdata:

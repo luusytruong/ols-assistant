@@ -8,8 +8,6 @@ Mục tiêu chính của SDK là giúp lập trình viên kết nối các mô h
 
 ## 2. Các khái niệm cốt lõi & Ví dụ thực tế
 
-Trong dự án "Chè Thái" (folder `be` mà nhóm đã phát triển), chúng ta đã áp dụng triệt để những khái niệm này. Dưới đây là lý thuyết kèm theo code minh họa trực tiếp từ mã nguồn dự án.
-
 ### 2.1. Agent (Tác nhân)
 
 Agent là thành phần trung tâm, được cấu hình với tính cách (instructions) và khả năng (tools).
@@ -18,14 +16,21 @@ Agent là thành phần trung tâm, được cấu hình với tính cách (inst
 
 ```typescript
 // src/agents/product.agent.ts
-const productAgent = new Agent({
-  name: "Product Agent",
-  instructions:
-    "Bạn là chuyên gia về trà. Hãy giúp khách chọn đồ uống phù hợp.",
-  model: "gpt-4o-mini",
-  // Agent này có các công cụ để tra cứu sản phẩm
-  tools: [getProducts, searchProducts],
-});
+export const createProductAgent = (sessionId: string) => {
+  const orderAgent = createOrderAgent(sessionId);
+
+  return new Agent({
+    name: "Product Agent",
+    instructions: productAgentInstructions,
+    model: "gpt-4o-mini",
+    tools: [
+      getProducts,
+      searchProducts,
+      createUpdateCustomerInfoTool(sessionId),
+    ],
+    handoffs: [orderAgent],
+  });
+};
 ```
 
 ### 2.2. Tools (Công cụ)
@@ -38,120 +43,199 @@ Tools là cách Agent tác động vào thế giới thực. Chúng ta sử dụ
 // src/agents/order.agent.ts
 const createOrder = tool({
   name: "create_order",
-  description: "Tạo đơn hàng mới, các thông tin phải chính xác",
-  // Định nghĩa Schema rõ ràng để Agent điền đúng format
+  description: "Tạo đơn hàng mới cho khách hàng",
   parameters: OrderRequestSchema,
   execute: async (params) => {
-    // Logic gọi API backend thực sự
-    const result = await orderApi.createOrder(params);
-    return result;
+    const result = await orderService.createOrder(params);
+    return JSON.stringify(result);
   },
 });
 ```
 
 ### 2.3. Handoffs (Chuyển giao) & Multi-Agent
 
-Đây là mô hình "Router" mà chúng ta đã áp dụng. Một Agent (Lễ tân) sẽ đứng ra hứng request và chuyển việc (handoff) cho Agent con phù hợp.
-
-**Ví dụ:** `Router Agent` điều phối công việc giữa `Product Agent` và `Order Agent`.
+Đây là mô hình "Router" đã áp dụng. Product Agent có thể chuyển giao công việc sang Order Agent khi khách hàng muốn đặt hàng.
 
 ```typescript
-// src/agents/router.agent.ts
-const routerAgent = new Agent({
-  name: "Router Agent",
-  instructions: `Lễ tân "Chè Thái".
-  LUÔN CHUYỂN:
-  - sản phẩm/trà/giá → Product Agent
-  - đơn hàng/giao hàng → Order Agent`,
-  // Danh sách các agent mà Router có thể chuyển việc sang
-  handoffs: [productAgent, orderAgent],
+// Product Agent có thể handoff sang Order Agent
+const productAgent = new Agent({
+  name: "Product Agent",
+  handoffs: [orderAgent], // Có thể chuyển việc sang Order Agent
 });
 ```
 
-Nhờ cơ chế này, chúng ta tách biệt được nghiệp vụ: Router chỉ lo điều hướng, còn việc xử lý logic trà hay đơn hàng là của Agent con.
+## 3. Working Memory - Bộ nhớ làm việc
 
-## 3. Khái niệm Nâng cao: Structured Outputs (Định dạng đầu ra có cấu trúc)
+### 3.1. Khái niệm
 
-### 3.1. Lý thuyết
+**Working Memory** là cơ chế lưu trữ thông tin tạm thời về khách hàng trong suốt phiên làm việc. Khác với lịch sử hội thoại (History Context), Working Memory tập trung vào **dữ liệu có cấu trúc** như tên, số điện thoại, địa chỉ - những thông tin cần thiết để hoàn thành giao dịch.
 
-Mặc định LLM trả về văn bản (text). Tuy nhiên, để tích hợp vào ứng dụng (Web/App), chúng ta thường cần dữ liệu dạng JSON. SDK hỗ trợ tham số `outputType` để ép Agent trả về đúng cấu trúc mong muốn.
+### 3.2. Kiến trúc triển khai
 
-### 3.2. Ví dụ trong dự án
+Chúng ta sử dụng bảng `customer_sessions` trong PostgreSQL:
 
-Chúng ta muốn Bot không chỉ trả lời câu thoại (`reply`) mà còn trả về dữ liệu (`toolResult`) để Frontend hiển thị thẻ sản phẩm hoặc đơn hàng.
-
-**Định nghĩa Schema (`src/types/agent.response.ts`):**
-
-```typescript
-export const AgentResponseSchema = z.object({
-  reply: z.string().describe("Lời thoại trả lời khách hàng"),
-
-  // Loại dữ liệu đi kèm (nếu có)
-  type: z.enum(["text", "product", "order"]).nullable(),
-
-  // Dữ liệu JSON stringify để Frontend parse ra hiển thị
-  toolResult: z.string().nullable(),
-});
+```prisma
+model CustomerSession {
+  id              Int      @id @default(autoincrement())
+  sessionId       String   @unique
+  customerName    String?
+  customerPhone   String?
+  customerAddress String?
+  customerEmail   String?
+}
 ```
 
-**Áp dụng vào Agent:**
+### 3.3. Cách hoạt động
+
+#### Bước 1: Tool để cập nhật thông tin
+
+Agent được trang bị tool `save_info` để chủ động lưu thông tin:
 
 ```typescript
-const routerAgent = new Agent({
-  // ... cấu hình khác
-  outputType: AgentResponseSchema, // Bắt buộc Agent trả về đúng format này
-});
+// src/agents/shared.tools.ts
+export const createUpdateCustomerInfoTool = (sessionId: string) =>
+  tool({
+    name: "save_info",
+    description:
+      "BẮT BUỘC GỌI NGAY LẬP TỨC tool này khi phát hiện khách hàng cung cấp bất kỳ thông tin cá nhân nào như Tên, Số điện thoại, Email hoặc Địa chỉ để lưu vào hệ thống.",
+    parameters: CustomerInfoSchema,
+    execute: async (info) => {
+      const data = {
+        customerName: info.customerName ?? null,
+        customerPhone: info.customerPhone ?? null,
+        customerAddress: info.customerAddress ?? null,
+        customerEmail: info.customerEmail ?? null,
+      };
+      await customerService.updateSession(sessionId, data);
+      return "Đã lưu thông tin khách hàng";
+    },
+  });
 ```
 
-Khi chạy, kết quả `result.finalOutput` sẽ luôn đảm bảo có đủ các trường `reply`, `type`, giúp Frontend dễ dàng xử lý logic hiển thị.
+#### Bước 2: Context Injection
 
-## 4. Cài đặt & Triển khai
-
-### 4.1. Cài đặt thư viện
-
-```bash
-npm install @openai/agents zod
-```
-
-### 4.2. Khởi chạy Server (Tích hợp Express)
-
-Trong thực tế, Agent thường chạy trên Server. Dưới đây là cách chúng ta tích hợp SDK với Express và quản lý phiên (`Session`).
-
-**Quản lý Session (`src/server.ts`):**
-Chúng ta dùng `OpenAIConversationsSession` để Bot nhớ được ngữ cảnh.
+Server tự động "nhắc nhở" AI về thông tin khách hàng ở mỗi request:
 
 ```typescript
-const sessions = new Map<string, OpenAIConversationsSession>();
+// src/server.ts
+let contextMessage = message;
+if (customerSession.customerName || customerSession.customerPhone) {
+  const context = `[Context: Khách hàng ${customerSession.customerName || "Chưa biết"}, SĐT: ${customerSession.customerPhone || "Chưa biết"}, Địa chỉ: ${customerSession.customerAddress || "Chưa biết"}]`;
+  contextMessage = `${context}\n${message}`;
+}
+```
 
-app.post("/chat", async (req, res) => {
-  const { sessionId, message } = req.body;
+### 3.4. Ưu điểm
 
-  // Tạo session mới nếu chưa có
-  if (!sessions.has(sessionId)) {
-    sessions.set(sessionId, new OpenAIConversationsSession());
+1. **Thông tin rời rạc**: Khách có thể cung cấp tên trước, SĐT sau, địa chỉ sau nữa - hệ thống vẫn ghi nhớ đầy đủ
+2. **Persistent**: Dữ liệu được lưu vào DB, không mất khi restart server
+3. **Tự động**: AI tự quyết định khi nào cần lưu thông tin, không cần lập trình viên can thiệp
+
+## 4. History Context - Ngữ cảnh lịch sử
+
+### 4.1. Khái niệm
+
+**History Context** là cơ chế lưu trữ toàn bộ lịch sử hội thoại (user messages, assistant responses, tool calls, tool results) để AI có đủ ngữ cảnh khi trả lời.
+
+### 4.2. Kiến trúc triển khai
+
+Chúng ta implement interface `Session` của OpenAI SDK bằng `PrismaSession`:
+
+```typescript
+// src/lib/session.ts
+export class PrismaSession implements Session {
+  async getItems(limit?: number): Promise<AgentInputItem[]> {
+    const messages = await prisma.conversation.findMany({
+      where: { sessionId: this.sessionId },
+      orderBy: { id: "asc" },
+      ...(limit ? { take: -limit } : {}), // Lấy N tin nhắn mới nhất
+    });
+    return messages.map((msg) => JSON.parse(msg.content));
   }
 
-  // Chạy Agent với session đã lưu
-  const result = await run(routerAgent, message, {
-    session: sessions.get(sessionId),
-  });
-
-  // Trả về kết quả cho Client
-  res.json(result.finalOutput);
-});
+  async addItems(items: AgentInputItem[]): Promise<void> {
+    await prisma.conversation.createMany({
+      data: items.map((item) => ({
+        sessionId: this.sessionId,
+        role: (item as any).role || (item as any).type || "system",
+        content: JSON.stringify(item),
+      })),
+    });
+  }
+}
 ```
+
+### 4.3. Cách hoạt động
+
+1. **Tự động lưu**: Mỗi khi `run(agent, message, { session })` được gọi, SDK tự động:
+   - Lấy lịch sử cũ qua `session.getItems()`
+   - Thêm tin nhắn mới của user
+   - Gọi LLM với toàn bộ context
+   - Lưu response và tool calls qua `session.addItems()`
+
+2. **Đảm bảo thứ tự**: Sử dụng `id` (autoincrement) thay vì `createdAt` để tránh lỗi thứ tự khi nhiều tin nhắn được tạo cùng lúc
+
+3. **Tối ưu**: Chỉ lấy N tin nhắn gần nhất (thông qua `take: -limit`) để giảm token cost
+
+### 4.4. Ưu điểm
+
+1. **Transparent**: Lập trình viên không cần quản lý lịch sử thủ công
+2. **Scalable**: Lưu vào DB, có thể xử lý hàng triệu phiên chat
+3. **Debuggable**: Có thể xem lại toàn bộ lịch sử để debug lỗi AI
 
 ## 5. Kết luận
 
-OpenAI Agents SDK cung cấp một bộ khung (framework) chuẩn mực. Việc áp dụng các pattern như **Handoffs (Router)** và **Structured Outputs** giúp code của chúng ta:
+OpenAI Agents SDK cung cấp một bộ khung (framework) chuẩn mực. Việc áp dụng các pattern như **Handoffs (Router)**, **Working Memory**, và **History Context** giúp code của chúng ta:
 
-1.  **Dễ bảo trì**: Tách nhỏ nghiệp vụ thành từng Agent riêng.
-2.  **Chặt chẽ**: Dữ liệu ra/vào luôn đúng format nhờ Zod.
-3.  **Có trạng thái**: Bot nhớ được lịch sử chat nhờ Session.
+1. **Dễ bảo trì**: Tách nhỏ nghiệp vụ thành từng Agent riêng
+2. **Chặt chẽ**: Dữ liệu ra/vào luôn đúng format nhờ Zod
+3. **Có trạng thái**: Bot nhớ được thông tin khách hàng và lịch sử chat
+4. **Testable**: Có test suite đầy đủ để đảm bảo chất lượng
 
-Đây là nền tảng vững chắc để phát triển các tính năng phức tạp hơn trong tương lai.
+### 6.1. Kiến trúc tổng thể
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Frontend (React)                      │
+└────────────────────┬────────────────────────────────────┘
+                     │ POST /chat
+                     ▼
+┌─────────────────────────────────────────────────────────┐
+│                  Express Server                          │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │ 1. Load Working Memory (customer_sessions)       │   │
+│  │ 2. Inject Context vào message                    │   │
+│  │ 3. Load History Context (PrismaSession)          │   │
+│  │ 4. Run Agent với session                         │   │
+│  │ 5. Extract toolResult từ history                 │   │
+│  └──────────────────────────────────────────────────┘   │
+└────────────────────┬────────────────────────────────────┘
+                     │
+        ┌────────────┴────────────┐
+        ▼                         ▼
+┌──────────────┐          ┌──────────────┐
+│Product Agent │◄────────►│ Order Agent  │
+│              │ handoff  │              │
+│ Tools:       │          │ Tools:       │
+│ - get_products         │ - create_order│
+│ - search_products      │ - get_order   │
+│ - save_info │ - update_order│
+└──────────────┘          └──────────────┘
+        │                         │
+        └────────────┬────────────┘
+                     ▼
+        ┌────────────────────────┐
+        │   PostgreSQL Database  │
+        │ ┌────────────────────┐ │
+        │ │ customer_sessions  │ │ ← Working Memory
+        │ │ conversations      │ │ ← History Context
+        │ │ products           │ │
+        │ │ orders             │ │
+        │ └────────────────────┘ │
+        └────────────────────────┘
+```
 
 ## Tài liệu tham khảo
 
-1.  [OpenAI Agents SDK Documentation](https://openai.github.io/openai-agents-js/)
-2.  [Source Code dự án] (thư mục `agent/src`)
+1. [OpenAI Agents SDK Documentation](https://openai.github.io/openai-agents-js/)
+2. [Source Code dự án] (thư mục `be/src`)

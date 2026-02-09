@@ -7,22 +7,17 @@ export const customerService = {
     });
   },
 
-  async updateSession(
-    sessionId: string,
-    data: {
-      customerName?: string;
-      customerPhone?: string;
-      customerAddress?: string;
-      customerEmail?: string;
-      metadata?: any;
-    },
-  ) {
+  async updateSession(sessionId: string, data: any) {
+    const cleanData = Object.fromEntries(
+      Object.entries(data).filter(([_, v]) => v !== undefined),
+    );
+
     return prisma.customerSession.upsert({
       where: { sessionId },
-      update: data,
+      update: cleanData,
       create: {
         sessionId,
-        ...data,
+        ...cleanData,
       },
     });
   },

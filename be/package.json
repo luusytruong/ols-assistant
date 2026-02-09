@@ -6,7 +6,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "prisma generate && tsc",
     "start": "node dist/server.js",
-    "db:migrate": "prisma migrate dev",
+    "db:reset": "prisma migrate reset && prisma migrate dev --name init && prisma db seed",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
     "db:seed": "prisma db seed"

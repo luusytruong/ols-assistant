@@ -9,6 +9,8 @@ import {
   Hash,
   Truck,
   Banknote,
+  Minus,
+  Plus,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +24,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { useCartStore } from "@/stores/useCartStore";
 
 const imageUrl = "https://truongdev.site/tea/uploads/";
 
@@ -53,10 +57,7 @@ interface ChatMessageProps {
   content: string;
   timestamp: number;
   type?: "text" | "product" | "order";
-  toolResult?: {
-    success: boolean;
-    data: Product | Product[] | Order | Order[];
-  };
+  toolResult?: Product | Product[] | Order | Order[];
   sendMessage: (message: string) => void;
 }
 
@@ -106,6 +107,14 @@ function ProductCard({
   sendMessage,
 }: Product & { sendMessage: (message: string) => void }) {
   const [quantity, setQuantity] = useState(1);
+  const { addItem } = useCartStore();
+  const [added, setAdded] = useState(false);
+
+  const handleAddToCart = () => {
+    addItem({ id, name, price }, quantity);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  };
   return (
     <Card key={id} className="max-w-48 w-fit relative" size="sm">
       <img
@@ -127,21 +136,36 @@ function ProductCard({
       <CardHeader>
         <CardTitle className="line-clamp-1">{name}</CardTitle>
       </CardHeader>
-      <CardFooter className="gap-2">
-        <Input
-          type="number"
-          className="w-16"
-          value={quantity}
-          onChange={(e) => setQuantity(Number(e.target.value) || 1)}
-        />
+      <CardFooter className="gap-3">
+        <ButtonGroup>
+          <Input
+            type="number"
+            className="w-full text-center"
+            value={quantity}
+            onChange={(e) => setQuantity(Number(e.target.value) || 1)}
+          />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setQuantity(quantity - 1 || 1)}
+          >
+            <Minus />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setQuantity(quantity + 1)}
+            disabled={quantity >= 10}
+          >
+            <Plus />
+          </Button>
+        </ButtonGroup>
         <Button
-          className="flex-1"
-          onClick={() =>
-            sendMessage(`Thêm ${name} số lượng ${quantity} vào đơn hàng`)
-          }
+          size="icon"
+          variant={added ? "success" : "default"}
+          onClick={handleAddToCart}
         >
-          <ShoppingCart />
-          Thêm
+          {added ? <Check /> : <ShoppingCart />}
         </Button>
       </CardFooter>
     </Card>
@@ -190,7 +214,6 @@ export function ChatMessage({
   sendMessage,
 }: ChatMessageProps) {
   const isUser = role === "user";
-  const data = toolResult?.data;
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -224,16 +247,15 @@ export function ChatMessage({
             className={clsx(
               "prose prose-base max-w-none dark:prose-invert",
               "prose-p:leading-relaxed prose-pre:bg-muted-foreground/10 prose-pre:text-foreground prose-code:text-primary",
-              isUser
-                ? "prose-p:text-primary-foreground"
-                : "prose-p:text-foreground",
+              "prose-li:m-0",
+              isUser ? "text-primary-foreground" : "text-foreground",
             )}
           >
             <ReactMarkdown>{content}</ReactMarkdown>
           </div>
         </div>
 
-        {renderItems(type, data, sendMessage)}
+        {renderItems(type, toolResult, sendMessage)}
 
         <div
           className={clsx(

@@ -6,5 +6,8 @@ set -e
 echo "🚀 Running prisma migrations..."
 npx prisma migrate deploy
 
-echo "🌱 Starting server..."
+echo "🌱 Seeding database..."
+npx prisma db seed
+
+echo "🚀 Starting server..."
 exec pnpm start

@@ -1,11 +1,17 @@
 import prisma from "../lib/prisma.js";
-import type { OrderRequest, OrderUpdate } from "../types/order.schema.js";
+import {
+  type OrderRequest,
+  type OrderUpdate,
+  OrderRequestSchema,
+  OrderSchema,
+  OrderUpdateSchema,
+} from "../types/order.schema.js";
 
 export const orderService = {
   async createOrder(data: OrderRequest) {
-    const { items, ...customerInfo } = data;
+    const validatedData = OrderRequestSchema.parse(data);
+    const { items, ...customerInfo } = validatedData;
 
-    // Fetch products to get prices
     const productIds = items.map((item) => item.productId);
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
@@ -17,7 +23,7 @@ export const orderService = {
     const orderItemsData = items.map((item) => {
       const product = productMap.get(item.productId);
       if (!product) {
-        throw new Error(`Product with ID ${item.productId} not found`);
+        throw new Error(`Sản phẩm ${item.productId} không tồn tại`);
       }
       const price = Number(product.price);
       totalPrice += price * item.quantity;
@@ -30,7 +36,7 @@ export const orderService = {
 
     const code = `CT${Date.now()}`;
 
-    return prisma.order.create({
+    const order = await prisma.order.create({
       data: {
         code,
         ...customerInfo,
@@ -47,10 +53,26 @@ export const orderService = {
         },
       },
     });
+
+    return OrderSchema.parse(order);
+  },
+
+  async getOrders() {
+    const orders = await prisma.order.findMany({
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    return OrderSchema.array().parse(orders);
   },
 
   async getOrderById(id: number | string) {
-    return prisma.order.findUnique({
+    const order = await prisma.order.findUnique({
       where: { id: Number(id) },
       include: {
         items: {
@@ -60,10 +82,11 @@ export const orderService = {
         },
       },
     });
+    return order ? OrderSchema.parse(order) : null;
   },
 
   async getOrderByCode(code: string) {
-    return prisma.order.findUnique({
+    const order = await prisma.order.findUnique({
       where: { code },
       include: {
         items: {
@@ -73,10 +96,11 @@ export const orderService = {
         },
       },
     });
+    return order ? OrderSchema.parse(order) : null;
   },
 
   async getOrderByPhone(phone: string) {
-    return prisma.order.findMany({
+    const orders = await prisma.order.findMany({
       where: { customerPhone: { contains: phone } },
       include: {
         items: {
@@ -87,16 +111,21 @@ export const orderService = {
       },
       orderBy: { createdAt: "desc" },
     });
+    return OrderSchema.array().parse(orders);
   },
 
   async updateOrder(id: number | string, data: OrderUpdate) {
-    // Exclude id from data update to avoid "Unknown arg `id` in data" error if it leaks in
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id: _, ...updateData } = data;
+    const validatedData = OrderUpdateSchema.parse({ ...data, id: String(id) });
+    const { id: _, ...updateData } = validatedData;
 
-    return prisma.order.update({
+    // Lọc bỏ các trường null hoặc rỗng vì Prisma model yêu cầu string
+    const finalUpdateData = Object.fromEntries(
+      Object.entries(updateData).filter(([_, v]) => v !== null && v !== ""),
+    );
+
+    const order = await prisma.order.update({
       where: { id: Number(id) },
-      data: updateData,
+      data: finalUpdateData,
       include: {
         items: {
           include: {
@@ -105,5 +134,6 @@ export const orderService = {
         },
       },
     });
+    return OrderSchema.parse(order);
   },
 };

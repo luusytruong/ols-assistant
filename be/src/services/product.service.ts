@@ -1,6 +1,5 @@
 import prisma from "../lib/prisma.js";
 import {
-  ProductSchema,
   ProductListSchema,
   type ProductSearch,
 } from "../types/product.schema.js";

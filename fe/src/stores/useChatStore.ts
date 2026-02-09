@@ -10,10 +10,20 @@ export interface Message {
   timestamp: number;
 }
 
+export interface User {
+  name: string;
+  phone: string;
+  address: string;
+  email?: string;
+}
+
 interface ChatState {
   messages: Message[];
+  user: User | null;
   isLoading: boolean;
   sessionId: string;
+
+  addUser: (user: User) => void;
   addMessage: (message: Omit<Message, "id" | "timestamp">) => void;
   setLoading: (loading: boolean) => void;
   clearChat: () => void;
@@ -24,8 +34,11 @@ export const useChatStore = create<ChatState>()(
   persist(
     (set, get) => ({
       messages: [],
+      user: null,
       isLoading: false,
-      sessionId: `session_${Date.now()}`,
+      sessionId: crypto.randomUUID(),
+
+      addUser: (user: User) => set({ user }),
 
       addMessage: (message) => {
         set((state) => ({

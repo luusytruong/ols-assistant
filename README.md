@@ -51,8 +51,15 @@ Bạn cần thiết lập mã khóa OpenAI để Agent có thể hoạt động:
 Đây là cách nhanh nhất để chạy toàn bộ hệ thống (Database, Backend, Agent, Frontend):
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
+
+> Nếu bạn thay đổi code mà Docker vẫn chạy bản cũ, hãy dùng lệnh sau để build mới hoàn toàn:
+>
+> ```bash
+> docker compose build --no-cache
+> docker compose up -d
+> ```
 
 ---
 
@@ -60,12 +67,11 @@ docker compose up -d
 
 Sau khi khởi chạy thành công, các dịch vụ sẽ hoạt động tại các địa chỉ sau:
 
-| Dịch vụ         | Công nghệ    | URL                                            | Cổng (Port) |
-| :-------------- | :----------- | :--------------------------------------------- | :---------- |
-| **Frontend**    | Vite + React | [http://localhost:5173](http://localhost:5173) | `5173`      |
-| **Backend API** | Spring Boot  | [http://localhost:8080](http://localhost:8080) | `8080`      |
-| **AI Agent**    | Node.js      | [http://localhost:3001](http://localhost:3001) | `3001`      |
-| **Database**    | MySQL 8.0    | `localhost`                                    | `3307`      |
+| Dịch vụ              | Công nghệ              | URL                                            | Cổng (Port) |
+| :------------------- | :--------------------- | :--------------------------------------------- | :---------- |
+| **Frontend**         | Vite + React           | [http://localhost:5173](http://localhost:5173) | `5173`      |
+| **Backend AI Agent** | Node.js + OpenAI/Agent | [http://localhost:3001](http://localhost:3001) | `3001`      |
+| **Database**         | PostgreSQL             | `localhost`                                    | `5432`      |
 
 ---
 
@@ -73,7 +79,7 @@ Sau khi khởi chạy thành công, các dịch vụ sẽ hoạt động tại c
 
 - **Xem logs toàn bộ hệ thống:** `docker compose logs -f`
 - **Dừng hệ thống:** `docker compose down`
-- **Build lại hệ thống (khi có thay đổi code):** `docker compose up -d --build`
+- **Build lại hệ thống (không dùng cache):** `docker compose build --no-cache && docker compose up -d`
 - **Kiểm tra trạng thái các container:** `docker ps`
 
 ## 📧 Liên hệ & Hỗ trợ

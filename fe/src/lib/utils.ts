@@ -5,6 +5,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const formatPrice = (price: number) => {
-  return new Intl.NumberFormat("vi-VN").format(price) + "đ";
-};
+export function formatPrice(price: number): string {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0,
+  }).format(price);
+}

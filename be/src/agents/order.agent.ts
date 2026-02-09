@@ -6,7 +6,7 @@ import {
   OrderUpdateSchema,
 } from "../types/order.schema.js";
 import { orderAgentInstructions } from "./instructions.js";
-import { AgentResponseSchema } from "../types/agent.response.js";
+import { createUpdateCustomerInfoTool } from "./shared.tools.js";
 
 const createOrder = tool({
   name: "create_order",
@@ -28,14 +28,13 @@ const getOrder = tool({
   name: "get_order",
   description: "Tra cứu đơn hàng",
   parameters: z.object({
-    id: z.string().optional().describe("Mã đơn hàng hoặc ID"),
-    phone: z.string().optional().describe("Số điện thoại khách hàng"),
+    id: z.string().nullable().describe("Mã đơn hàng hoặc ID"),
+    phone: z.string().nullable().describe("Số điện thoại khách hàng"),
   }),
   execute: async ({ id, phone }) => {
     console.log("calling get order", { id, phone });
     try {
       if (id) {
-        // Try code first, then ID if numeric
         let order = await orderService.getOrderByCode(id);
         if (!order && !isNaN(Number(id))) {
           order = await orderService.getOrderById(id);
@@ -69,12 +68,16 @@ const updateOrder = tool({
   },
 });
 
-const orderAgent = new Agent({
-  name: "Order Agent",
-  instructions: orderAgentInstructions,
-  model: "gpt-4o-mini",
-  tools: [createOrder, getOrder, updateOrder],
-  outputType: AgentResponseSchema,
-});
-
-export default orderAgent;
+export const createOrderAgent = (sessionId: string) => {
+  return new Agent({
+    name: "Order Agent",
+    instructions: orderAgentInstructions,
+    model: "gpt-4o-mini",
+    tools: [
+      createOrder,
+      getOrder,
+      updateOrder,
+      createUpdateCustomerInfoTool(sessionId),
+    ],
+  });
+};

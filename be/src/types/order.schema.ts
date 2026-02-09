@@ -5,25 +5,55 @@ export const OrderItemBaseSchema = z.object({
   quantity: z.number().describe("Số lượng sản phẩm"),
 });
 
-export const OrderItemResponseSchema = OrderItemBaseSchema.extend({
-  id: z.number().describe("ID item"),
-  productName: z.string().describe("Tên sản phẩm"),
-  price: z.number().describe("Giá sản phẩm"),
-  // productImage: z.string().describe("Ảnh sản phẩm"),
+export const OrderProductSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  // image: z.string(),
+  // price: z.preprocess((val) => Number(val), z.number()),
+  // description: z.string().nullable(),
 });
 
+export const OrderItemResponseSchema = z
+  .object({
+    id: z.number(),
+    orderId: z.number(),
+    productId: z.number(),
+    quantity: z.number(),
+    price: z.preprocess((val) => Number(val), z.number()),
+    product: OrderProductSchema,
+  })
+  .transform((item) => ({
+    id: item.id,
+    productId: item.productId,
+    quantity: item.quantity,
+    productName: item.product.name,
+  }));
+
 export const OrderCustomerSchema = z.object({
-  customerName: z.string().describe("Tên khách hàng"),
-  customerPhone: z.string().describe("Số điện thoại khách hàng"),
-  customerAddress: z.string().describe("Địa chỉ khách hàng"),
-  customerEmail: z.string().nullable(),
+  customerName: z
+    .string()
+    .min(1, "Tên khách hàng không được để trống")
+    .describe("Tên khách hàng"),
+  customerPhone: z
+    .string()
+    .min(10, "Số điện thoại không hợp lệ")
+    .describe("Số điện thoại khách hàng"),
+  customerAddress: z
+    .string()
+    .min(1, "Địa chỉ không được để trống")
+    .describe("Địa chỉ khách hàng"),
+  customerEmail: z
+    .string()
+    .nullable()
+    .or(z.literal(""))
+    .describe("Email khách hàng"),
 });
 
 export const OrderBaseSchema = z.object({
   id: z.number(),
   code: z.string(),
   status: z.string(),
-  totalPrice: z.number(),
+  totalPrice: z.preprocess((val) => Number(val), z.number()),
 });
 
 export const OrderSchema = OrderBaseSchema.merge(OrderCustomerSchema).extend({
@@ -32,15 +62,18 @@ export const OrderSchema = OrderBaseSchema.merge(OrderCustomerSchema).extend({
 });
 
 export const OrderRequestSchema = OrderCustomerSchema.extend({
-  items: z.array(OrderItemBaseSchema).describe("Danh sách sản phẩm"),
+  items: z
+    .array(OrderItemBaseSchema)
+    .min(1, "Đơn hàng phải có ít nhất một sản phẩm")
+    .describe("Danh sách sản phẩm"),
   note: z.string().nullable(),
 });
 
 export const OrderUpdateSchema = z.object({
   id: z.string(),
-  customerName: z.string().nullable(),
-  customerPhone: z.string().nullable(),
-  customerAddress: z.string().nullable(),
+  customerName: z.string().min(1).nullable(),
+  customerPhone: z.string().min(10).nullable(),
+  customerAddress: z.string().min(1).nullable(),
   customerEmail: z.string().nullable(),
   note: z.string().nullable(),
 });

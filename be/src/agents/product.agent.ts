@@ -2,9 +2,9 @@ import { Agent, tool } from "@openai/agents";
 import z from "zod";
 import { productService } from "../services/index.js";
 import { ProductSearchSchema } from "../types/product.schema.js";
-import { AgentResponseSchema } from "../types/agent.response.js";
-import orderAgent from "./order.agent.js";
 import { productAgentInstructions } from "./instructions.js";
+import { createUpdateCustomerInfoTool } from "./shared.tools.js";
+import { createOrderAgent } from "./order.agent.js";
 
 // product tools
 const getProducts = tool({
@@ -41,14 +41,19 @@ const searchProducts = tool({
   },
 });
 
-// product agent
-const productAgent = new Agent({
-  name: "Product Agent",
-  instructions: productAgentInstructions,
-  model: "gpt-4o-mini",
-  tools: [getProducts, searchProducts],
-  handoffs: [orderAgent],
-  outputType: AgentResponseSchema,
-});
+// Factory function to create product agent with sessionId
+export const createProductAgent = (sessionId: string) => {
+  const orderAgent = createOrderAgent(sessionId);
 
-export default productAgent;
+  return new Agent({
+    name: "Product Agent",
+    instructions: productAgentInstructions,
+    model: "gpt-4o-mini",
+    tools: [
+      getProducts,
+      searchProducts,
+      createUpdateCustomerInfoTool(sessionId),
+    ],
+    handoffs: [orderAgent],
+  });
+};

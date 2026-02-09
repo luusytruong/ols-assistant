@@ -1,0 +1,19 @@
+{
+  "name": "Trợ lý OLS",
+  "short_name": "Trợ lý Chè Thái",
+  "lang": "vi",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fbfbfb",
+  "theme_color": "#151515",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "prefer_related_applications": false
+}
